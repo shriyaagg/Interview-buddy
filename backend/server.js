@@ -20,13 +20,13 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
-
+constport = process.env.PORT || 3000;
 
 connectDB();
 
 app.use("/api/auth", authRouter);
 app.use("/api/interview", interviewRouter);
 
-app.listen(3000, () => {
-    console.log("Server running on port 3000");
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
 });
