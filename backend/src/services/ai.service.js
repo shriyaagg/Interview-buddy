@@ -154,14 +154,14 @@ Job Description:
 ${jobDescription}
 `;
 
-    const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: interviewReportResponseSchema
-        }
-    });
+const response = await generateContentWithRetry({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+        responseMimeType: "application/json",
+        responseSchema: interviewReportResponseSchema
+    }
+});
 
     console.log("RAW GEMINI RESPONSE:");
     console.log(response.text);
@@ -180,8 +180,10 @@ const browser = await puppeteer.launch({
     args: ["--no-sandbox", "--disable-setuid-sandbox"]
 })
     const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" })
-
+await page.setContent(htmlContent, {
+    waitUntil: "domcontentloaded",
+    timeout: 60000
+})
     const pdfBuffer = await page.pdf({
         format: "A4", margin: {
             top: "20mm",
@@ -194,6 +196,33 @@ const browser = await puppeteer.launch({
     await browser.close()
 
     return pdfBuffer
+}
+async function generateContentWithRetry({ model, contents, config }, retries = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            return await ai.models.generateContent({
+                model,
+                contents,
+                config
+            });
+        } catch (error) {
+            const isUnavailable =
+                error?.status === 503 ||
+                error?.error?.code === 503;
+
+            if (!isUnavailable || attempt === retries - 1) {
+                throw error;
+            }
+
+            const delay = 1000 * Math.pow(2, attempt);
+
+            console.log(
+                `Gemini unavailable. Retrying in ${delay / 1000}s...`
+            );
+
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
 }
 
 async function generateResumePdf({ resume, selfDescription, jobDescription }) {
@@ -222,14 +251,14 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
                         The resume should not be so lengthy, it should ideally be 1-2 pages long when converted to PDF. Focus on quality rather than quantity and make sure to include all the relevant information that can increase the candidate's chances of getting an interview call for the given job description.
                     `
 
-    const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: resumePdfResponseSchema,
-        }
-    })
+ const response = await generateContentWithRetry({
+    model: "gemini-3-flash-preview",
+    contents: prompt,
+    config: {
+        responseMimeType: "application/json",
+        responseSchema: resumePdfResponseSchema,
+    }
+});
 
 
     const jsonContent = JSON.parse(response.text)
