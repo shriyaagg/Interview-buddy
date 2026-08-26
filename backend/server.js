@@ -25,6 +25,11 @@ connectDB();
 
 app.use("/api/auth", authRouter);
 app.use("/api/interview", interviewRouter);
+app.get("/", (req, res) => {
+    res.status(200).json({
+        message: "Interview Buddy API is running"
+    });
+});
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
