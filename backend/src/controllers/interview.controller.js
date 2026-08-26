@@ -8,30 +8,51 @@ import { generateInterviewReport, generateResumePdf } from "../services/ai.servi
  */
 async function generateInterViewReportController(req, res) {
 
-    const resumeContent = await (new PDFParse(Uint8Array.from(req.file.buffer))).getText()
-    const { selfDescription, jobDescription } = req.body
+    const { selfDescription, jobDescription } = req.body;
+
+    let resumeContent = "";
+
+    // If a resume PDF was uploaded
+    if (req.file) {
+        const parsedPdf = await (
+            new PDFParse(Uint8Array.from(req.file.buffer))
+        ).getText();
+
+        resumeContent = parsedPdf.text;
+    }
+
+    // Require at least one source of candidate information
+    if (!req.file && !selfDescription) {
+        return res.status(400).json({
+            message: "Please provide either a resume PDF or a self description."
+        });
+    }
+
+    if (!jobDescription) {
+        return res.status(400).json({
+            message: "Please provide a job description."
+        });
+    }
 
     const interViewReportByAi = await generateInterviewReport({
-        resume: resumeContent.text,
-        selfDescription,
+        resume: resumeContent,
+        selfDescription: selfDescription || "",
         jobDescription
-    })
+    });
 
     const interviewReport = await interviewReportModel.create({
         user: req.user.id,
-        resume: resumeContent.text,
-        selfDescription,
+        resume: resumeContent,
+        selfDescription: selfDescription || "",
         jobDescription,
         ...interViewReportByAi
-    })
+    });
 
     res.status(201).json({
         message: "Interview report generated successfully.",
         interviewReport
-    })
-
+    });
 }
-
 /**
  * @description Controller to get interview report by interviewId.
  */
