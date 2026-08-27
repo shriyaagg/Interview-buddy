@@ -132,6 +132,8 @@ async function logoutUserController(req, res) {
     httpOnly: true,
     secure: true,
     sameSite: "none",
+        partitioned: true,
+
     
     path: "/"
 })
